@@ -1,0 +1,95 @@
+{
+  "id": "demo-project",
+  "settings": {
+    "title": "VGZ Demo Project",
+    "description": "Minimal demo project for VGZ runtime",
+    "author": "VGZ Team",
+    "resolution": {
+      "width": 1024,
+      "height": 768
+    },
+    "tileSize": 32
+  },
+  "scenes": [
+    {
+      "id": "scene-start",
+      "name": "Starting Area",
+      "version": 1,
+      "map": {
+        "id": "map-start",
+        "name": "Demo Map",
+        "width": 20,
+        "height": 15,
+        "tilesets": [
+          {
+            "id": "tileset-grass",
+            "name": "Grass Tileset",
+            "assetPath": "projects/demo-project/assets/tilesets/grass",
+            "tileWidth": 32,
+            "tileHeight": 32,
+            "columns": 16
+          }
+        ],
+        "layers": [
+          {
+            "id": "layer-terrain",
+            "name": "Terrain",
+            "type": "terrain",
+            "data": [
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            ],
+            "visible": true,
+            "opacity": 1,
+            "zOrder": 0
+          }
+        ],
+        "entities": [
+          {
+            "id": "entity-1",
+            "name": "Welcome Sign",
+            "type": "object",
+            "position": {
+              "x": 10,
+              "y": 8
+            },
+            "zOrder": 10,
+            "visible": true
+          },
+          {
+            "id": "entity-2",
+            "name": "Entrance Trigger",
+            "type": "trigger",
+            "position": {
+              "x": 10,
+              "y": 12
+            },
+            "visible": false
+          }
+        ],
+        "spawn": {
+          "x": 10,
+          "y": 10
+        },
+        "backgroundColor": "#87ceeb",
+        "version": 1
+      }
+    }
+  ],
+  "startSceneId": "scene-start",
+  "version": 1,
+  "updatedAt": "2026-05-20T12:00:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "tileset-grass",
+  "name": "Grass Tileset",
+  "description": "Grass and ground tiles",
+  "tileWidth": 32,
+  "tileHeight": 32,
+  "columns": 16,
+  "rows": 16,
+  "tileCount": 256,
+  "tiles": [
+    {
+      "id": 0,
+      "name": "empty"
+    },
+    {
+      "id": 1,
+      "name": "grass"
+    },
+    {
+      "id": 2,
+      "name": "water"
+    }
+  ]
+}
