@@ -1,0 +1,31 @@
+{
+  "name": "@vgz/runtime-types",
+  "version": "0.1.0",
+  "description": "Runtime lifecycle type definitions for VGZ",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./loader": {
+      "import": "./dist/loader.js",
+      "types": "./dist/loader.d.ts"
+    },
+    "./boot": {
+      "import": "./dist/boot.js",
+      "types": "./dist/boot.d.ts"
+    }
+  },
+  "dependencies": {
+    "@vgz/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.6"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}

@@ -20,6 +20,12 @@ importers:
 
   apps/runtime:
     dependencies:
+      '@vgz/runtime-types':
+        specifier: workspace:*
+        version: link:../../packages/runtime-types
+      '@vgz/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       phaser:
         specifier: ^3.60.0
         version: 3.60.0
@@ -33,6 +39,16 @@ importers:
       vite:
         specifier: ^5.0.0
         version: 5.0.0(@types/node@20.4.2)
+
+  packages/runtime-types:
+    dependencies:
+      '@vgz/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+    devDependencies:
+      typescript:
+        specifier: ^5.1.6
+        version: 5.1.6
 
   packages/shared-types:
     devDependencies:

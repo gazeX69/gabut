@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "phaser": "^3.60.0"
+    "phaser": "^3.60.0",
+    "@vgz/shared-types": "workspace:*",
+    "@vgz/runtime-types": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.4.2",
