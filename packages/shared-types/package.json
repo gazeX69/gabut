@@ -1,0 +1,36 @@
+{
+  "name": "@vgz/shared-types",
+  "version": "0.1.0",
+  "description": "Shared type definitions and serialization contracts for VGZ",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./project": {
+      "import": "./dist/project.js",
+      "types": "./dist/project.d.ts"
+    },
+    "./scene": {
+      "import": "./dist/scene.js",
+      "types": "./dist/scene.d.ts"
+    },
+    "./map": {
+      "import": "./dist/map.js",
+      "types": "./dist/map.d.ts"
+    },
+    "./entity": {
+      "import": "./dist/entity.js",
+      "types": "./dist/entity.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.6"
+  }
+}
