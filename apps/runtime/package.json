@@ -1,0 +1,20 @@
+{
+  "name": "@rpg-maker-vgz/runtime",
+  "version": "0.1.0",
+  "description": "Game runtime with Phaser",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "^3.60.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.4.2",
+    "typescript": "^5.1.6",
+    "vite": "^5.0.0"
+  }
+}

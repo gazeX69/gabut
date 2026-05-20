@@ -11,3 +11,8 @@ Current focus:
 - architecture governance
 - monorepo structure
 - AI-native workflow
+
+
+
+
+
