@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "Node",
+    "baseUrl": ".",
+    "paths": {
+      "@vgz/engine-core/*": [
+        "packages/engine-core/src/*"
+      ],
+      "@vgz/shared-types/*": [
+        "packages/shared-types/src/*"
+      ]
+    }
+  }
+}
