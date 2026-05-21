@@ -73,6 +73,9 @@ export interface VGZSceneEntity {
   /** Custom properties (key-value for gameplay logic) */
   properties?: Record<string, any>;
 
+  /** Script ID assigned to this entity */
+  scriptId?: string | null;
+
   /** Future: Component data (not yet used) */
   components?: VGZComponentData;
 

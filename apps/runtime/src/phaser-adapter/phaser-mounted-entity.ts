@@ -43,6 +43,10 @@ export interface RuntimeMountedEntity {
   /** Optional per-entity update logic */
   updateHandler?: EntityUpdateHandler;
   
+  /** Minimal animation runtime state */
+  currentAnimationId?: string;
+  animationState?: import('./runtime-animation.js').RuntimeAnimationState;
+  
   /** Optional untyped runtime memory for the entity */
   runtimeData?: Record<string, unknown>;
   

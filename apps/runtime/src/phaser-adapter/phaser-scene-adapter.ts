@@ -27,6 +27,7 @@ import { RuntimeInputState } from './runtime-input-state.js';
 import { PhaserInputBridge } from './phaser-input-bridge.js';
 import { RuntimeCameraState } from './runtime-camera-state.js';
 import { PhaserCameraBridge } from './phaser-camera-bridge.js';
+import { RuntimeScriptSystem } from './runtime-script-system.js';
 import { RuntimeUILayer } from '../ui/runtime-ui-layer.js';
 import { RuntimeAudioLayer } from '../audio/runtime-audio-layer.js';
 import {
@@ -51,6 +52,8 @@ import {
   type RuntimeRestoreResult,
   type RuntimeSnapshotResult,
 } from './runtime-snapshot.js';
+import { DEMO_ANIMATION_CLIPS } from './runtime-animation.js';
+import { DEMO_PREFABS } from './runtime-prefab.js';
 
 /**
  * Mount a RuntimeScene into a Phaser Scene.
@@ -204,9 +207,12 @@ export function mountRuntimeScene(phaserScene: Phaser.Scene, runtimeScene: Runti
   // Initialize Camera Boundary
   const cameraState = new RuntimeCameraState();
   const cameraBridge = new PhaserCameraBridge(phaserScene.cameras.main, cameraState);
-
+  
   const uiLayer = new RuntimeUILayer(phaserScene, () => isDisposed);
   const audioLayer = new RuntimeAudioLayer(phaserScene, () => isDisposed);
+  
+  const scriptSystem = new RuntimeScriptSystem();
+  scriptSystem.initFromScene(runtimeScene);
 
   // Create partial mounted scene first, to pass to the loop
   const partialMounted = {
@@ -222,6 +228,7 @@ export function mountRuntimeScene(phaserScene: Phaser.Scene, runtimeScene: Runti
     camera: cameraState,
     ui: uiLayer,
     audio: audioLayer,
+    scriptSystem,
   } as Partial<MountedScene>;
 
   const loop = new RuntimeSceneLoop(partialMounted as MountedScene, cameraBridge);
@@ -288,11 +295,46 @@ export function mountRuntimeScene(phaserScene: Phaser.Scene, runtimeScene: Runti
   };
 
   const setLayerOpacity = (layerId: string, opacity: number): boolean => {
-    if (isDisposed) return false;
     const layer = getMountedLayer(layerId);
     if (!layer) return false;
-    layer.alpha = opacity;
+    layer.alpha = Math.max(0, Math.min(1, opacity));
     syncMountedLayerVisibility(layer);
+    return true;
+  };
+
+  const assignScript = (entityId: string, scriptId: string | null): boolean => {
+    const entity = checkValid(entityId);
+    if (!entity) return false;
+    (entity.descriptor as any).scriptId = scriptId;
+    return true;
+  };
+
+  const setTile = (layerId: string, tileX: number, tileY: number, tileIndex: number): boolean => {
+    if (isDisposed) return false;
+    const layer = getMountedLayer(layerId);
+    if (!layer || layer.kind !== 'tilemap') return false;
+    if (!layer.tilemapLayer || !layer.descriptor.tileData) return false;
+
+    const { width, height } = layer.descriptor.tileData;
+    if (!Number.isFinite(tileX) || !Number.isFinite(tileY) || !Number.isFinite(tileIndex)) return false;
+    if (tileX < 0 || tileY < 0 || tileX >= width || tileY >= height) return false;
+    if (tileIndex < 0) return false;
+
+    // Update the Phaser tilemap visually (tileIndex 0 = empty, Phaser uses tileIndex-1)
+    const phaserIndex = tileIndex <= 0 ? -1 : tileIndex - 1;
+    if (phaserIndex < 0) {
+      layer.tilemapLayer.removeTileAt(tileX, tileY);
+    } else {
+      layer.tilemapLayer.putTileAt(phaserIndex, tileX, tileY);
+    }
+
+    // Update the runtime tile data array (mutable copy held by the layer)
+    const tiles = layer.descriptor.tileData.tiles;
+    const idx = tileY * width + tileX;
+    if (idx >= 0 && idx < tiles.length) {
+      (tiles as number[])[idx] = tileIndex;
+    }
+
     return true;
   };
 
@@ -574,6 +616,257 @@ export function mountRuntimeScene(phaserScene: Phaser.Scene, runtimeScene: Runti
     createdObjects.length = 0;
   };
 
+  const playAnimation = (entityId: string, clipId: string): boolean => {
+    const entity = checkValid(entityId);
+    if (!entity) return false;
+    const clip = DEMO_ANIMATION_CLIPS[clipId];
+    if (!clip) return false;
+    
+    entity.currentAnimationId = clipId;
+    entity.animationState = {
+      clipId,
+      playing: true,
+      currentFrameIndex: 0,
+      elapsedMs: 0,
+      loop: clip.loop
+    };
+    
+    // Apply first frame immediately
+    if (clip.frames.length > 0 && entity.gameObject && (entity.gameObject as any).setFrame) {
+      (entity.gameObject as any).setFrame(clip.frames[0]);
+    }
+    return true;
+  };
+
+  const stopAnimation = (entityId: string): boolean => {
+    const entity = checkValid(entityId);
+    if (!entity || !entity.animationState) return false;
+    entity.animationState.playing = false;
+    return true;
+  };
+
+  const assignAsset = (entityId: string, assetId: string, assetType: string, url: string): boolean => {
+    const entity = checkValid(entityId);
+    if (!entity || !entity.gameObject) return false;
+    
+    // Minimal implementation: if it's a sprite, and the new asset is a sprite texture, set the texture.
+    // For this minimal foundation, we assume the texture is already in the Phaser cache.
+    // In a full implementation, we'd need to load the texture if it's not present.
+    // We assume the assetId corresponds to the texture key.
+    
+    // Stop any playing animation
+    if (entity.animationState) {
+      entity.animationState.playing = false;
+    }
+    
+    // Attempt to set texture
+    if ((entity.gameObject as any).setTexture) {
+      try {
+        (entity.gameObject as any).setTexture(assetId);
+      } catch (err) {
+        console.warn(`[PhaserAdapter] Failed to assign asset ${assetId} to entity ${entityId}:`, err);
+        return false;
+      }
+    }
+    
+    // Update local descriptor copy for bridge sync (although descriptors are technically immutable, 
+    // the runtime bridge will patch it on the React side. Here we just update the assetId in a safe way if needed, 
+    // but the actual source of truth for the editor is the React state).
+    return true;
+  };
+
+  const tickAnimation = (entityId: string, deltaMs: number): void => {
+    const entity = checkValid(entityId);
+    if (!entity || !entity.animationState || !entity.animationState.playing) return;
+    
+    const state = entity.animationState;
+    const clip = DEMO_ANIMATION_CLIPS[state.clipId];
+    if (!clip || clip.frames.length === 0) return;
+
+    state.elapsedMs += deltaMs;
+    const frameDurationMs = 1000 / clip.fps;
+
+    if (state.elapsedMs >= frameDurationMs) {
+      const framesToAdvance = Math.floor(state.elapsedMs / frameDurationMs);
+      state.elapsedMs -= framesToAdvance * frameDurationMs;
+
+      state.currentFrameIndex += framesToAdvance;
+
+      if (state.currentFrameIndex >= clip.frames.length) {
+        if (state.loop) {
+          state.currentFrameIndex = state.currentFrameIndex % clip.frames.length;
+        } else {
+          state.currentFrameIndex = clip.frames.length - 1;
+          state.playing = false;
+        }
+      }
+
+      if (entity.gameObject && (entity.gameObject as any).setFrame) {
+        (entity.gameObject as any).setFrame(clip.frames[state.currentFrameIndex]);
+      }
+    }
+  };
+
+  const deleteEntity = (entityId: string): boolean => {
+    return destroyMountedEntity(entityId);
+  };
+
+  const createEntityFromPrefab = (prefabId: string, x: number, y: number): any | null => {
+    if (isDisposed) return null;
+    const prefab = DEMO_PREFABS[prefabId];
+    if (!prefab) return null;
+
+    const newId = `ent-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+    const entityDesc: any = {
+      id: newId,
+      name: prefab.name,
+      type: prefab.entityType,
+      assetId: prefab.assetId,
+      transform: {
+        position: { x, y },
+        rotation: 0,
+        scale: { x: prefab.defaultTransform.scaleX, y: prefab.defaultTransform.scaleY }
+      },
+      visible: true,
+      zOrder: prefab.defaultTransform.zOrder,
+      collision: prefab.collision,
+      trigger: prefab.interactive ? { interactive: true, eventId: '' } : undefined,
+    };
+
+    // Find the first entity layer to add to, or create one
+    let targetLayer: RuntimeMountedLayer | undefined;
+    for (const layer of mountedLayers.values()) {
+      if (layer.kind === 'entity') {
+        targetLayer = layer;
+        break;
+      }
+    }
+    
+    if (!targetLayer) return null; // Shouldn't happen in a proper scene
+
+    const asset = entityDesc.assetId ? runtimeScene.assets.get(entityDesc.assetId) : undefined;
+    const obj = createEntityObject(phaserScene, entityDesc, asset);
+    const depth = layerDepthBase(targetLayer.descriptor.zIndex) + targetLayer.entityIds.size + 1;
+    (obj as any).setDepth(depth);
+
+    targetLayer.group!.add(obj);
+    createdObjects.push(obj);
+
+    const mountedEntity: RuntimeMountedEntity = {
+      entityId: newId,
+      descriptor: entityDesc,
+      gameObject: obj,
+      transformState: {
+        x: entityDesc.transform.position.x,
+        y: entityDesc.transform.position.y,
+        rotation: entityDesc.transform.rotation,
+        scaleX: entityDesc.transform.scale.x,
+        scaleY: entityDesc.transform.scale.y,
+      },
+      visible: entityDesc.visible,
+      alpha: targetLayer.alpha,
+      destroyed: false,
+      collisionEnabled: !!entityDesc.collision?.solid,
+      collisionBounds: entityDesc.collision ? ({
+        width: entityDesc.collision.bodySize?.width || 32,
+        height: entityDesc.collision.bodySize?.height || 32,
+        offsetX: entityDesc.collision.bodyOffset?.x || 0,
+        offsetY: entityDesc.collision.bodyOffset?.y || 0
+      } as any) : null,
+      collisionTags: [],
+      triggerEnabled: !!entityDesc.trigger,
+      interactionEnabled: !!entityDesc.trigger?.interactive,
+      triggerTags: [],
+      activeTriggerOverlaps: new Set(),
+      triggerCallbacks: undefined,
+      components: [],
+      animationState: prefab.animation ? { clipId: prefab.animation.clipId, playing: prefab.animation.playing, currentFrameIndex: 0, elapsedMs: 0, loop: true } : undefined,
+    };
+
+    if (mountedEntity.animationState) {
+      (mountedEntity as any).currentAnimationId = prefab.animation!.clipId;
+    }
+
+    syncMountedEntityVisibility(mountedEntity);
+    mountedEntities.set(newId, mountedEntity);
+    targetLayer.entityIds.add(newId);
+    
+    // Mutate runtimeScene to keep it in sync for bridge logic
+    (runtimeScene.entities as Map<string, any>).set(newId, entityDesc);
+    (targetLayer.descriptor.entityIds as string[]).push(newId);
+
+    return entityDesc;
+  };
+
+  const duplicateEntity = (entityId: string): any | null => {
+    if (isDisposed) return null;
+    const existing = mountedEntities.get(entityId);
+    if (!existing) return null;
+
+    const newId = `ent-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+    const clonedDesc = JSON.parse(JSON.stringify(existing.descriptor));
+    clonedDesc.id = newId;
+    clonedDesc.name = `${clonedDesc.name} (Copy)`;
+    clonedDesc.transform.position.x += 16; // offset slightly
+    clonedDesc.transform.position.y += 16;
+
+    let targetLayer: RuntimeMountedLayer | undefined;
+    for (const layer of mountedLayers.values()) {
+      if (layer.kind === 'entity' && layer.entityIds.has(entityId)) {
+        targetLayer = layer;
+        break;
+      }
+    }
+    if (!targetLayer) return null;
+
+    const asset = clonedDesc.assetId ? runtimeScene.assets.get(clonedDesc.assetId) : undefined;
+    const obj = createEntityObject(phaserScene, clonedDesc, asset);
+    const depth = layerDepthBase(targetLayer.descriptor.zIndex) + targetLayer.entityIds.size + 1;
+    (obj as any).setDepth(depth);
+
+    targetLayer.group!.add(obj);
+    createdObjects.push(obj);
+
+    const mountedEntity: RuntimeMountedEntity = {
+      entityId: newId,
+      descriptor: clonedDesc,
+      gameObject: obj,
+      transformState: {
+        x: clonedDesc.transform.position.x,
+        y: clonedDesc.transform.position.y,
+        rotation: clonedDesc.transform.rotation,
+        scaleX: clonedDesc.transform.scale.x,
+        scaleY: clonedDesc.transform.scale.y,
+      },
+      visible: clonedDesc.visible,
+      alpha: targetLayer.alpha,
+      destroyed: false,
+      collisionEnabled: existing.collisionEnabled,
+      collisionBounds: existing.collisionBounds ? { ...existing.collisionBounds } : null,
+      collisionTags: [...existing.collisionTags],
+      triggerEnabled: existing.triggerEnabled,
+      interactionEnabled: existing.interactionEnabled,
+      triggerTags: [...existing.triggerTags],
+      activeTriggerOverlaps: new Set(),
+      triggerCallbacks: undefined, // Need to rewire scripts manually or rely on component attach
+      components: [], // Components aren't cloned deeply in minimal foundation
+      animationState: existing.animationState ? { ...existing.animationState, elapsedMs: 0 } : undefined,
+    };
+    
+    if (mountedEntity.animationState) {
+      (mountedEntity as any).currentAnimationId = (existing as any).currentAnimationId;
+    }
+
+    syncMountedEntityVisibility(mountedEntity);
+    mountedEntities.set(newId, mountedEntity);
+    targetLayer.entityIds.add(newId);
+    
+    (runtimeScene.entities as Map<string, any>).set(newId, clonedDesc);
+    (targetLayer.descriptor.entityIds as string[]).push(newId);
+
+    return clonedDesc;
+  };
+
   Object.assign(partialMounted, {
     getMountedEntity,
     getMountedLayer,
@@ -583,9 +876,18 @@ export function mountRuntimeScene(phaserScene: Phaser.Scene, runtimeScene: Runti
     setEntityVisible,
     setLayerVisible,
     setLayerOpacity,
+    setTile,
     destroyMountedEntity,
     registerEntityUpdate,
     unregisterEntityUpdate,
+    playAnimation,
+    stopAnimation,
+    assignAsset,
+    assignScript,
+    tickAnimation,
+    createEntityFromPrefab,
+    duplicateEntity,
+    deleteEntity,
     attachComponent,
     detachComponent,
     getComponent,

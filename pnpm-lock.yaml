@@ -23,6 +23,15 @@ importers:
 
   apps/editor:
     dependencies:
+      '@vgz/engine-runtime':
+        specifier: workspace:*
+        version: link:../../packages/engine-runtime
+      '@vgz/scene-types':
+        specifier: workspace:*
+        version: link:../../packages/scene-types
+      '@vgz/scene-validator':
+        specifier: workspace:*
+        version: link:../../packages/scene-validator
       '@vgz/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types

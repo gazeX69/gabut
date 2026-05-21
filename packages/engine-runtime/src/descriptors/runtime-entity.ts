@@ -19,6 +19,7 @@ export interface RuntimeEntityDescriptor {
   readonly id: string;
   readonly name: string;
   readonly type: VGZEntityType;
+  readonly scriptId?: string | null;
   readonly transform: RuntimeTransform;
   readonly visible: boolean;
   readonly assetId: string | null;

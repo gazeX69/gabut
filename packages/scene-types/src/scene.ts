@@ -75,6 +75,13 @@ export interface VGZSceneSchema {
   /** Editor-only metadata (stripped before runtime export) */
   editorMeta?: VGZSceneEditorMeta;
 
+  /** Scripts defined in the scene (for the sandbox foundation) */
+  scripts?: {
+    id: string;
+    name: string;
+    source: string;
+  }[];
+
   /** Schema version (for migrations) */
   version: 1;
 

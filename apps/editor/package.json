@@ -10,7 +10,10 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@vgz/shared-types": "workspace:*"
+    "@vgz/shared-types": "workspace:*",
+    "@vgz/scene-types": "workspace:*",
+    "@vgz/scene-validator": "workspace:*",
+    "@vgz/engine-runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",

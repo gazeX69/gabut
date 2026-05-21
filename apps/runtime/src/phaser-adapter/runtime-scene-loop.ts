@@ -64,6 +64,18 @@ export class RuntimeSceneLoop {
             console.warn(`[RuntimeSceneLoop] Error in updateHandler for entity '${entity.entityId}':`, err);
           }
         }
+        
+        if ((entity.descriptor as any).scriptId) {
+          this.mountedScene.scriptSystem.tickEntity(entity, (entity.descriptor as any).scriptId, deltaMs);
+        }
+        
+        if (entity.animationState && entity.animationState.playing) {
+          try {
+            this.mountedScene.tickAnimation(entity.entityId, deltaMs);
+          } catch (err) {
+            console.warn(`[RuntimeSceneLoop] Animation tick error for entity '${entity.entityId}':`, err);
+          }
+        }
 
         if (this.mountedScene.isDisposed) break;
         if (entity.destroyed || !this.mountedScene.mountedEntities.has(entity.entityId)) continue;

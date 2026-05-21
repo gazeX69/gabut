@@ -255,6 +255,9 @@ export class AdapterDemoScene extends Phaser.Scene {
   private audioMuted = false;
   private sessionSnapshot: RuntimeSnapshot | null = null;
   private snapshotStatus = 'Snapshot: none';
+  private editorPaintMode = false;
+  private editorActiveLayerId = 'layer-ground';
+  private editorSelectedTileIndex = 1;
 
   constructor() {
     super('AdapterDemoScene');
@@ -317,6 +320,8 @@ export class AdapterDemoScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-K', () => this.saveRuntimeSnapshot());
     this.input.keyboard?.on('keydown-F9', () => this.restoreRuntimeSnapshot());
     this.input.keyboard?.on('keydown-L', () => this.restoreRuntimeSnapshot());
+
+    this.setupEditorBridge();
   }
 
   private saveRuntimeSnapshot() {
@@ -411,7 +416,7 @@ export class AdapterDemoScene extends Phaser.Scene {
     }
   }
 
-  private async handleReloadScene() {
+  private async handleReloadScene(customScene?: any) {
     if (this.sceneTransition.isTransitioning) return;
 
     this.activeTimers.forEach((t) => t.destroy());
@@ -422,7 +427,19 @@ export class AdapterDemoScene extends Phaser.Scene {
     this.sessionSnapshot = null;
     this.snapshotStatus = 'Snapshot: cleared (reload)';
 
-    const result = await this.sceneTransition.reloadCurrent();
+    let result;
+    if (customScene) {
+      // Direct mount bypassing standard load for sandbox edits
+      const mount = this.sceneTransition.getCurrentMountedScene();
+      if (mount && !mount.isDisposed) {
+        mount.dispose();
+      }
+      this.showBootMessage(`Reloading runtime from editor...`);
+      result = await this.sceneTransition.transitionTo(customScene);
+    } else {
+      result = await this.sceneTransition.reloadCurrent();
+    }
+
     this.lastTransitionMessage = result.message ?? '';
 
     if (result.success) {
@@ -649,6 +666,321 @@ export class AdapterDemoScene extends Phaser.Scene {
     });
     this.bootMessage.setScrollFactor(0);
     this.bootMessage.setDepth(20_000);
+  }
+
+  private setupEditorBridge() {
+    let dragActive = false;
+    let dragEntityId: string | null = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let lastDragUpdate = 0;
+
+    window.addEventListener('message', (e: MessageEvent) => {
+      const msg = e.data as any;
+      if (!msg || !msg.type) return;
+
+      if (msg.type === 'REQUEST_SCENE_DATA') {
+        const runtimeScene = this.sceneTransition.getCurrentRuntimeScene();
+        if (runtimeScene) {
+          const entitiesRecord: Record<string, any> = {};
+          if (runtimeScene.entities && typeof runtimeScene.entities.entries === 'function') {
+            for (const [id, entity] of runtimeScene.entities.entries()) {
+              entitiesRecord[id] = entity;
+            }
+          }
+          const assetsArray: any[] = [];
+          if (runtimeScene.assets && typeof runtimeScene.assets.values === 'function') {
+            for (const asset of runtimeScene.assets.values()) {
+              assetsArray.push(asset);
+            }
+          }
+          const serializedScene = {
+            id: runtimeScene.id,
+            name: runtimeScene.name,
+            viewport: runtimeScene.viewport,
+            layers: runtimeScene.layers,
+            entities: entitiesRecord,
+            assets: assetsArray
+          };
+          window.parent.postMessage({ type: 'SCENE_DATA', payload: { scene: serializedScene } }, '*');
+        }
+      } else if (msg.type === 'SELECT_ENTITY') {
+        this.applySelectionFeedback(msg.payload.entityId);
+        window.parent.postMessage({ type: 'ENTITY_SELECTED', payload: { entityId: msg.payload.entityId } }, '*');
+      } else if (msg.type === 'DESELECT_ENTITY') {
+        this.applySelectionFeedback(null);
+        window.parent.postMessage({ type: 'ENTITY_DESELECTED' }, '*');
+      } else if (msg.type === 'ENABLE_EDIT_MODE') {
+        this.editorPaintMode = true;
+      } else if (msg.type === 'DISABLE_EDIT_MODE') {
+        this.editorPaintMode = false;
+      } else if (msg.type === 'SET_ACTIVE_LAYER') {
+        this.editorActiveLayerId = msg.payload.layerId;
+      } else if (msg.type === 'SELECT_TILE') {
+        this.editorSelectedTileIndex = msg.payload.tileIndex;
+      } else if (msg.type === 'EDITOR_PAINT_TILE') {
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (!mount || mount.isDisposed) return;
+        const { layerId, tileX, tileY, tileIndex } = msg.payload;
+        if (mount.setTile(layerId, tileX, tileY, tileIndex)) {
+          window.parent.postMessage({ type: 'RUNTIME_TILE_UPDATED', payload: { layerId, tileX, tileY, tileIndex } }, '*');
+        }
+      } else if (msg.type === 'EDITOR_UPDATE_ENTITY_TRANSFORM') {
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (!mount || mount.isDisposed) {
+           window.parent.postMessage({ type: 'ENTITY_UPDATE_RESULT', payload: { success: false, error: 'No active mounted scene' } }, '*');
+           return;
+        }
+        
+        const { entityId, transform } = msg.payload;
+        let success = true;
+        const sceneDescriptor = this.sceneTransition.getCurrentRuntimeScene();
+        const originalEntity = sceneDescriptor?.entities ? (sceneDescriptor.entities as any)[entityId] : undefined;
+        const origTransform = originalEntity?.transform;
+        
+        if (transform.x !== undefined || transform.y !== undefined) {
+           const nx = transform.x ?? origTransform?.position?.x ?? 0;
+           const ny = transform.y ?? origTransform?.position?.y ?? 0;
+           if (!mount.setEntityPosition(entityId, nx, ny)) success = false;
+        }
+        if (transform.rotation !== undefined) {
+           if (!mount.setEntityRotation(entityId, transform.rotation)) success = false;
+        }
+        if (transform.scaleX !== undefined || transform.scaleY !== undefined) {
+           const nsx = transform.scaleX ?? origTransform?.scale?.x ?? 1;
+           const nsy = transform.scaleY ?? origTransform?.scale?.y ?? 1;
+           if (!mount.setEntityScale(entityId, nsx, nsy)) success = false;
+        }
+        
+        window.parent.postMessage({ type: 'ENTITY_UPDATE_RESULT', payload: { success, entityId, transform } }, '*');
+      } else if (msg.type === 'EDITOR_UPDATE_ENTITY_VISIBLE') {
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (!mount || mount.isDisposed) {
+           window.parent.postMessage({ type: 'ENTITY_UPDATE_RESULT', payload: { success: false, error: 'No active mounted scene' } }, '*');
+           return;
+        }
+        const { entityId, visible } = msg.payload;
+        const success = mount.setEntityVisible(entityId, visible);
+        window.parent.postMessage({ type: 'ENTITY_UPDATE_RESULT', payload: { success, entityId, visible } }, '*');
+      } else if (msg.type === 'EDITOR_PLAY_ANIMATION') {
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (!mount || mount.isDisposed) return;
+        const { entityId, animationId, playing } = msg.payload;
+        if (playing) {
+          if (mount.playAnimation(entityId, animationId)) {
+            window.parent.postMessage({ type: 'RUNTIME_ANIMATION_CHANGED', payload: { entityId, animationId, playing: true } }, '*');
+          }
+        } else {
+          if (mount.stopAnimation(entityId)) {
+            window.parent.postMessage({ type: 'RUNTIME_ANIMATION_CHANGED', payload: { entityId, animationId, playing: false } }, '*');
+          }
+        }
+      } else if (msg.type === 'EDITOR_ASSIGN_ASSET') {
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (!mount || mount.isDisposed) return;
+        const { entityId, assetId } = msg.payload;
+        // In a real scenario we'd look up asset type and URL. For minimal, we just pass assetId as the texture key.
+        if (mount.assignAsset(entityId, assetId, 'sprite', '')) {
+           window.parent.postMessage({ type: 'RUNTIME_ASSET_UPDATED', payload: { entityId, assetId } }, '*');
+        }
+      } else if (msg.type === 'EDITOR_CREATE_ENTITY') {
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (!mount || mount.isDisposed) return;
+        const { prefabId, x, y } = msg.payload;
+        const newEntity = mount.createEntityFromPrefab(prefabId, x, y);
+        if (newEntity) {
+          window.parent.postMessage({ type: 'RUNTIME_ENTITY_CREATED', payload: { entity: newEntity } }, '*');
+        }
+      } else if (msg.type === 'EDITOR_DUPLICATE_ENTITY') {
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (!mount || mount.isDisposed) return;
+        const { entityId } = msg.payload;
+        const newEntity = mount.duplicateEntity(entityId);
+        if (newEntity) {
+          window.parent.postMessage({ type: 'RUNTIME_ENTITY_CREATED', payload: { entity: newEntity } }, '*');
+        }
+      } else if (msg.type === 'EDITOR_DELETE_ENTITY') {
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (!mount || mount.isDisposed) return;
+        const { entityId } = msg.payload;
+        if (mount.deleteEntity(entityId)) {
+          window.parent.postMessage({ type: 'RUNTIME_ENTITY_DELETED', payload: { entityId } }, '*');
+        }
+      } else if (msg.type === 'EDITOR_RELOAD_RUNTIME') {
+        const { scene } = msg.payload;
+        if (scene) {
+          // Mount the new scene
+          this.handleReloadScene(scene);
+          // Acknowledge back
+          window.parent.postMessage({ type: 'RUNTIME_RUNTIME_RELOADED' }, '*');
+        }
+      } else if (msg.type === 'EDITOR_SAVE_SCRIPT') {
+        const { scriptId, source } = msg.payload;
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (mount && !mount.isDisposed) {
+          // Compile and update the script in the registry
+          mount.scriptSystem.compileScript(scriptId, source);
+          window.parent.postMessage({ type: 'RUNTIME_SCRIPT_SAVED', payload: { scriptId } }, '*');
+        }
+      } else if (msg.type === 'EDITOR_ASSIGN_SCRIPT') {
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (mount && !mount.isDisposed) {
+          const { entityId, scriptId } = msg.payload;
+          if (mount.assignScript(entityId, scriptId)) {
+            // Updated script locally
+          }
+        }
+      }
+    });
+
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      const mount = this.sceneTransition.getCurrentMountedScene();
+      if (!mount || mount.isDisposed) return;
+
+      if (this.editorPaintMode) {
+        if (!this.editorActiveLayerId) return;
+        const layer = mount.getMountedLayer(this.editorActiveLayerId);
+        if (!layer || layer.kind !== 'tilemap' || !layer.tilemapLayer) return;
+        
+        const tilemap = layer.tilemapLayer.tilemap;
+        const tileX = tilemap.worldToTileX(pointer.worldX);
+        const tileY = tilemap.worldToTileY(pointer.worldY);
+        
+        if (tileX !== null && tileY !== null) {
+          if (mount.setTile(this.editorActiveLayerId, tileX, tileY, this.editorSelectedTileIndex)) {
+            window.parent.postMessage({ type: 'RUNTIME_TILE_UPDATED', payload: { layerId: this.editorActiveLayerId, tileX, tileY, tileIndex: this.editorSelectedTileIndex } }, '*');
+          }
+        }
+        return;
+      }
+
+      const worldX = pointer.worldX;
+      const worldY = pointer.worldY;
+      let topHitId: string | null = null;
+      let topDepth = -Infinity;
+
+      mount.mountedEntities.forEach((entity, id) => {
+        if (!entity.visible || entity.destroyed) return;
+        const phaserObj = entity.gameObject as any;
+        if (!phaserObj) return;
+
+        let bounds: Phaser.Geom.Rectangle | null = null;
+        if (typeof phaserObj.getBounds === 'function') {
+          bounds = phaserObj.getBounds();
+        }
+        
+        if (bounds && bounds.contains(worldX, worldY)) {
+          const depth = phaserObj.depth ?? 0;
+          if (depth > topDepth) {
+            topDepth = depth;
+            topHitId = id;
+          }
+        }
+      });
+
+      this.applySelectionFeedback(topHitId);
+      
+      window.parent.postMessage({
+        type: 'RUNTIME_ENTITY_SELECTED',
+        payload: { entityId: topHitId, source: 'viewport' }
+      }, '*');
+
+      if (topHitId) {
+        dragActive = true;
+        dragEntityId = topHitId;
+        const entity = mount.getMountedEntity(topHitId);
+        const phaserObj = entity?.gameObject as any;
+        if (phaserObj) {
+          dragOffsetX = phaserObj.x - worldX;
+          dragOffsetY = phaserObj.y - worldY;
+        }
+      } else {
+        dragActive = false;
+        dragEntityId = null;
+      }
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!dragActive || !dragEntityId) return;
+      const mount = this.sceneTransition.getCurrentMountedScene();
+      if (!mount || mount.isDisposed) {
+        dragActive = false;
+        return;
+      }
+
+      const newX = pointer.worldX + dragOffsetX;
+      const newY = pointer.worldY + dragOffsetY;
+
+      mount.setEntityPosition(dragEntityId, newX, newY);
+
+      const now = Date.now();
+      if (now - lastDragUpdate > 16) {
+        lastDragUpdate = now;
+        const entity = mount.getMountedEntity(dragEntityId);
+        if (entity) {
+          window.parent.postMessage({
+            type: 'RUNTIME_ENTITY_TRANSFORM_CHANGED',
+            payload: {
+              entityId: dragEntityId,
+              transform: { 
+                x: newX, 
+                y: newY, 
+                rotation: entity.transformState.rotation, 
+                scaleX: entity.transformState.scaleX, 
+                scaleY: entity.transformState.scaleY 
+              },
+              source: 'viewport-drag'
+            }
+          }, '*');
+        }
+      }
+    });
+
+    const stopDrag = () => {
+      if (dragActive && dragEntityId) {
+        // Send final precise position
+        const mount = this.sceneTransition.getCurrentMountedScene();
+        if (mount && !mount.isDisposed) {
+          const entity = mount.getMountedEntity(dragEntityId);
+          if (entity) {
+            window.parent.postMessage({
+              type: 'RUNTIME_ENTITY_TRANSFORM_CHANGED',
+              payload: {
+                entityId: dragEntityId,
+                transform: { 
+                  x: entity.transformState.x, 
+                  y: entity.transformState.y, 
+                  rotation: entity.transformState.rotation, 
+                  scaleX: entity.transformState.scaleX, 
+                  scaleY: entity.transformState.scaleY 
+                },
+                source: 'viewport-drag'
+              }
+            }, '*');
+          }
+        }
+      }
+      dragActive = false;
+      dragEntityId = null;
+    };
+
+    this.input.on('pointerup', stopDrag);
+    this.input.on('pointerout', stopDrag);
+  }
+
+  private applySelectionFeedback(selectedId: string | null) {
+    const mount = this.sceneTransition.getCurrentMountedScene();
+    if (!mount || mount.isDisposed) return;
+    
+    mount.mountedEntities.forEach((entity, id) => {
+      const phaserObj = entity.gameObject as any;
+      if (!phaserObj) return;
+      if (id === selectedId) {
+        if (typeof phaserObj.setTint === 'function') phaserObj.setTint(0x88ff88);
+      } else {
+        if (typeof phaserObj.clearTint === 'function') phaserObj.clearTint();
+      }
+    });
   }
 
   private scheduleCameraDemo(mount: MountedScene) {

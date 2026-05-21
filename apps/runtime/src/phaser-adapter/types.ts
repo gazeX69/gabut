@@ -36,10 +36,28 @@ export interface MountedScene {
   setLayerVisible(layerId: string, visible: boolean): boolean;
   setLayerOpacity(layerId: string, opacity: number): boolean;
   destroyMountedEntity(entityId: string): boolean;
+  assignAsset(entityId: string, assetId: string, assetType: string, url: string): boolean;
+
+  // Lifecycle API
+  createEntityFromPrefab(prefabId: string, x: number, y: number): any | null;
+  duplicateEntity(entityId: string): any | null;
+  deleteEntity(entityId: string): boolean;
+
+  // Tilemap Mutation API
+  setTile(layerId: string, tileX: number, tileY: number, tileIndex: number): boolean;
+
+  // Script API
+  assignScript(entityId: string, scriptId: string | null): boolean;
+  readonly scriptSystem: import('./runtime-script-system.js').RuntimeScriptSystem;
 
   // Update API
   registerEntityUpdate(entityId: string, handler: import('./phaser-mounted-entity.js').EntityUpdateHandler): boolean;
   unregisterEntityUpdate(entityId: string): boolean;
+
+  // Animation API
+  playAnimation(entityId: string, clipId: string): boolean;
+  stopAnimation(entityId: string): boolean;
+  tickAnimation(entityId: string, deltaMs: number): void;
 
   // Component API
   attachComponent(entityId: string, component: import('./runtime-component.js').RuntimeComponent): boolean;
