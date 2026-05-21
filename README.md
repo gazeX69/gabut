@@ -143,3 +143,20 @@ Early development may appear visually minimal because the current priority is st
 # License
 
 MIT
+
+
+---
+
+# Support Development
+
+If you want to support the development of RPG Maker VGZ, you can buy me a coffee:
+
+☕ https://trakteer.id/gazeX69
+
+Your support helps:
+- maintain development
+- fund infrastructure
+- extend engine features
+- continue long-term open source work
+
+Thank you for supporting the project.
