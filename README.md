@@ -4,6 +4,22 @@ Web-based low-code topdown RPG creator powered by Phaser.
 
 ---
 
+
+> # 🚧 DEVELOPMENT IN PROGRESS 🚧
+>
+> This project is currently in active pre-alpha development.
+>
+> Core systems, architecture, APIs, editor workflow, and runtime behavior are still evolving and may change significantly.
+>
+> Current priority:
+> - engine foundation
+> - runtime architecture
+> - editor/runtime bridge
+> - serialization systems
+> - AI-native workflow
+>
+> Not production ready yet.
+
 # Vision
 
 RPG Maker VGZ is an AI-native modular RPG engine and editor focused on:
