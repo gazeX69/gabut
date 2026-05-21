@@ -53,7 +53,7 @@ export interface VGZMapLayer {
   /**
    * Layer type determines rendering and interaction behavior
    */
-  type: 'terrain' | 'collision' | 'decoration'
+  type: 'terrain' | 'collision' | 'decoration' | 'foreground'
 
   /**
    * Tile data as 1D array

@@ -1,0 +1,56 @@
+{
+  "name": "@vgz/engine-runtime",
+  "version": "0.1.0",
+  "description": "Runtime scene loader for VGZ engine — validates, normalizes, and converts scene JSON to immutable runtime descriptors",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./loader": {
+      "import": "./dist/loader/index.js",
+      "types": "./dist/loader/index.d.ts",
+      "default": "./dist/loader/index.js"
+    },
+    "./descriptors": {
+      "import": "./dist/descriptors/index.js",
+      "types": "./dist/descriptors/index.d.ts",
+      "default": "./dist/descriptors/index.js"
+    },
+    "./registry": {
+      "import": "./dist/registry/index.js",
+      "types": "./dist/registry/index.d.ts",
+      "default": "./dist/registry/index.js"
+    },
+    "./errors": {
+      "import": "./dist/errors/index.js",
+      "types": "./dist/errors/index.d.ts",
+      "default": "./dist/errors/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "vgz",
+    "game-engine",
+    "runtime",
+    "scene-loader",
+    "descriptors",
+    "typescript"
+  ],
+  "author": "VGZ Team",
+  "license": "MIT",
+  "dependencies": {
+    "@vgz/scene-types": "workspace:*",
+    "@vgz/scene-validator": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.6"
+  }
+}

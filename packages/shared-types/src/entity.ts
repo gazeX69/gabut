@@ -73,4 +73,11 @@ export interface VGZEntity {
     hidden?: boolean
     color?: string
   }
+
+  /**
+   * Optional runtime metadata
+   * Used for trigger actions, scene transitions, etc.
+   * Example: { targetSceneId: "forest", targetSpawnId: "south-entry" }
+   */
+  meta?: Record<string, unknown>
 }

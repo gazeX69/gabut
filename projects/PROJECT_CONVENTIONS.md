@@ -1,4 +1,4 @@
-# VGZ Project Filesystem Conventions
+  # VGZ Project Filesystem Conventions
 
 **Date**: May 20, 2026  
 **Status**: Established  

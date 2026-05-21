@@ -1,0 +1,50 @@
+{
+  "name": "@vgz/scene-validator",
+  "version": "0.1.0",
+  "description": "Lightweight scene schema validation for VGZ engine",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./errors": {
+      "import": "./dist/errors.js",
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
+    "./validators": {
+      "import": "./dist/validators.js",
+      "types": "./dist/validators.d.ts",
+      "default": "./dist/validators.js"
+    },
+    "./scene": {
+      "import": "./dist/scene.js",
+      "types": "./dist/scene.d.ts",
+      "default": "./dist/scene.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "vgz",
+    "game-engine",
+    "scene",
+    "validator",
+    "schema",
+    "typescript"
+  ],
+  "author": "VGZ Team",
+  "license": "MIT",
+  "dependencies": {
+    "@vgz/scene-types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.6"
+  }
+}

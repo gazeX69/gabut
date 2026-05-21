@@ -133,6 +133,40 @@ export class RuntimeBoot {
   }
 
   /**
+   * Switch to a different scene within the already-loaded project.
+   * Preserves RuntimeBoot authority over scene loading and validation.
+   * Returns the updated RuntimeContext on success, or null on failure.
+   */
+  switchScene(sceneId: string): RuntimeContext | null {
+    if (!this.state.project) {
+      console.error('[RuntimeBoot] Cannot switch scene: no project loaded')
+      return null
+    }
+
+    const sceneResult = loadScene({
+      project: this.state.project,
+      sceneId,
+      validate: this.config.validate !== false
+    })
+
+    if (!sceneResult.success || !sceneResult.data) {
+      const err = sceneResult.error
+      console.error(`[RuntimeBoot] Scene switch failed: ${err?.message || 'Unknown'}`)
+      this.config.onError?.({
+        phase: 'LOADING_SCENE',
+        code: err?.code || 'UNKNOWN',
+        message: err?.message || 'Failed to switch scene'
+      })
+      return null
+    }
+
+    this.state.scene = sceneResult.data
+    console.log(`[RuntimeBoot] Scene switched to: ${sceneResult.data.name} (${sceneId})`)
+
+    return this.getContext()
+  }
+
+  /**
    * Set boot phase and call callback
    */
   private setPhase(phase: RuntimePhase): void {

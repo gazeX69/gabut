@@ -25,6 +25,10 @@
     "./entity": {
       "import": "./dist/entity.js",
       "types": "./dist/entity.d.ts"
+    },
+    "./messages": {
+      "import": "./dist/messages.js",
+      "types": "./dist/messages.d.ts"
     }
   },
   "scripts": {
